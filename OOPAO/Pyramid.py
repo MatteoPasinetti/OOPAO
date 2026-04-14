@@ -22,6 +22,7 @@ except:
     fft2 = scipy.fft.fft2
 
 
+
 class Pyramid:
     def __init__(self,
                  nSubap: float,
@@ -283,7 +284,7 @@ class Pyramid:
         self.cam = Detector(round(nSubap*self.zeroPaddingFactor))
         # WFS focal plane detector object (see Detector class)
         self.focal_plane_camera = Detector(int(
-            (modulation*4+12)*self.zeroPaddingFactor), psf_sampling=self.zeroPaddingFactor)
+            (modulation*4+12)*self.zeroPaddingFactor*self.telescope.padding_factor_correction), psf_sampling=self.zeroPaddingFactor*self.telescope.padding_factor_correction)
         self.focal_plane_camera.is_focal_plane_camera = True
         # Light ratio for the valid pixels selection
         self.lightRatio = lightRatio
@@ -330,6 +331,10 @@ class Pyramid:
 
         # Prepare the Tip Tilt for the modulation -- normalized to apply the modulation in terms of lambda/D
         [self.Tip, self.Tilt] = np.meshgrid(np.linspace(-np.pi, np.pi, self.telescope.resolution), np.linspace(-np.pi, np.pi, self.telescope.resolution))
+        if hasattr(self.telescope, 'initial_resolution'):
+            padding_correction = self.telescope.resolution / self.telescope.initial_resolution
+            self.Tip *= padding_correction
+            self.Tilt *= padding_correction
         self.Tilt *= self.telescope.pupil
         self.Tip *= self.telescope.pupil
 
@@ -663,8 +668,9 @@ class Pyramid:
         if phase_in is not None:
             self.src.phase = phase_in
         # mask amplitude for the light propagation
-        self.maskAmplitude = self.convert_for_gpu(np.sqrt(self.src.fluxMap/self.nTheta))
-
+        
+        self.maskAmplitude = self.convert_for_gpu(np.sqrt(self.src.fluxMap * self.src.scintillation / self.nTheta))
+  
         if self.spatialFilter is not None:
             if np.ndim(phase_in) == 2:
                 support_spatial_filter = np.copy(self.supportPadded)

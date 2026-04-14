@@ -156,12 +156,12 @@ plt.close('all')
 plt.figure()
 for i in range(4):
     plt.subplot(1,4,i+1)
-    plt.imshow(np.abs(wfs.mask[i]))
+    plt.imshow(np.abs(wfs.mask[i].get()))
     plt.title('Bi-O Edge Mask - Channel '+str(i+1))
 
 plt.figure()
-plt.plot((np.abs(wfs.mask[0])**2)[wfs.resolution//2,:],'-o')
-plt.plot((np.abs(wfs.mask[1])**2)[wfs.resolution//2,:],'-o')
+plt.plot((np.abs(wfs.mask[0].get())**2)[wfs.resolution//2,:],'-o')
+plt.plot((np.abs(wfs.mask[1].get())**2)[wfs.resolution//2,:],'-o')
 
 plt.figure()
 plt.plot(wfs.gray_gradient)
@@ -173,7 +173,7 @@ plt.figure()
 plt.imshow(wfs.cam.frame)
 
 plt.figure()
-plt.imshow(wfs.focal_plane_camera.frame + 1e8*(np.abs(wfs.mask[0]) + np.abs(wfs.mask[1])))
+plt.imshow(wfs.focal_plane_camera.frame + 1e8*(np.abs(wfs.mask[0].get()) + np.abs(wfs.mask[1].get())))
 #%% Useful BioEdge methods an properties
 
 # shift the BioEdge pupils on the detector

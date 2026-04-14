@@ -130,6 +130,19 @@ class FieldTransformer:
                                             radialScaling=self.radialScaling[src.ast_idx],
                                             shape_out=None,
                                             order=1)
+            
+            src.scintillation = interpolate_image(image_in=src.scintillation.copy(),
+                                            pixel_size_in=1.0,
+                                            pixel_size_out=1.0,
+                                            resolution_out=len(src.fluxMap.copy()),
+                                            rotation_angle=self.rotation_angle[src.ast_idx],
+                                            shift_x=self.shift_x[src.ast_idx],
+                                            shift_y=self.shift_y[src.ast_idx],
+                                            anamorphosisAngle=self.anamorphosisAngle[src.ast_idx],
+                                            tangentialScaling=self.tangentialScaling[src.ast_idx],
+                                            radialScaling=self.radialScaling[src.ast_idx],
+                                            shape_out=None,
+                                            order=1)
 
             # pupil mask containing only the pixels fully illuminated (no "gray" pixels)
             pupil_mask = src.fluxMap == np.max(src.fluxMap)
@@ -153,6 +166,7 @@ class FieldTransformer:
             # this allows removing "gray" zones near the pupil borders or central obstruction
             if self.remove_edge_effects:
                 src.fluxMap *= pupil_mask
+                src.scintillation *= pupil_mask
                 src.OPD *= pupil_mask
 
     def properties(self) -> dict:

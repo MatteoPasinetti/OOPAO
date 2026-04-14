@@ -53,16 +53,16 @@ ngs*tel*wfs
 #%% PAPYRUS input data from the bench
 from pymatreader import read_mat
 
-M2C = read_mat('M2C_KL_OOPAO_synthetic_IF.mat')['M2C_KL']
+M2C = read_mat('M2C_KL_OOPAO_synthetic_IF (1).mat')['M2C_KL']
 
-valid_pixel = read_mat('useful_pixels_20250604_0305.mat')['usefulPix']
-
-im = read_mat('intMat_klOOPAO_synthetic_bin=1_F=500_rMod=5_20250604_0307.mat')['matrix_inf']
-
+# valid_pixel = read_mat('useful_pixels_20250604_0305.mat')['usefulPix']
+valid_pixel = np.load('valid_pixel.npy')
+# im = read_mat('intMat_klOOPAO_synthetic_bin=1_F=500_rMod=5_20250604_0307.mat')['matrix_inf']
+im = np.load('int_mat_1_5_10_20_30_50_80_100_150.npy')
 # index of the KL modes included in the int-mat
 ind = [1, 5, 10, 20, 30, 50, 80, 100, 150]
 
-int_mat_extract= im[:,ind]
+int_mat_extract= im
 
 valid_pixel, int_mat_binned = Papytwin.bin_bench_data(valid_pixel = valid_pixel, full_int_mat = im, ratio = param['ratio'])
 
@@ -130,7 +130,7 @@ if calibrate_mis_registration:
 
 #%% PAPYTWIN Full Interaction Matrix Computation
 
-wfs.modulation = 5
+wfs.modulation = 0
 
 stroke = 0.0001
 calib = InteractionMatrix(  ngs            = ngs,
@@ -147,7 +147,7 @@ calib = InteractionMatrix(  ngs            = ngs,
                             display        = True)
     
 
-a = displayMap(im[:,index_modes], norma = True,axis=1,returnOutput=True)
+a = displayMap(im, norma = True,axis=1,returnOutput=True)
 plt.title("Experimental Interaction Matrix")
 b = displayMap(calib.D[:,index_modes], norma = True,axis=1,returnOutput=True)
 plt.title("Synthetic Interaction Matrix")
@@ -244,8 +244,8 @@ dm_commands = np.zeros((nLoop, dm.nValidAct))
 wfsSignal               = np.arange(0,wfs.nSignal)*0
 
 plot_obj = cl_plot(list_fig          = [atm.OPD,
-                                        tel.mean_removed_OPD,
-                                        tel.mean_removed_OPD,
+                                        ngs.OPD,
+                                        src.OPD,
                                         [[0,0],[0,0],[0,0]],
                                         wfs.cam.frame,
                                         wfs.focal_plane_camera.frame,
@@ -292,7 +292,7 @@ for i in range(nLoop):
     wfs*wfs.focal_plane_camera
     # save residuals corresponding to the NGS
     residual_NGS[i] = np.std(tel.OPD[np.where(tel.pupil>0)])*1e9
-    OPD_NGS         = tel.mean_removed_OPD.copy()
+    OPD_NGS         = ngs.OPD.copy()
 
     if display==True:        
         NGS_PSF = np.log10(np.abs(ngs_cam.frame))
@@ -302,7 +302,7 @@ for i in range(nLoop):
     dm_commands[i,:] = dm.coefs.copy()
     # save residuals corresponding to the NGS
     residual_SRC[i] = np.std(tel.OPD[np.where(tel.pupil>0)])*1e9
-    OPD_SRC         = tel.mean_removed_OPD.copy()
+    OPD_SRC         = src.OPD.copy()
     if frame_delay ==1:        
         wfsSignal=wfs.signal
     

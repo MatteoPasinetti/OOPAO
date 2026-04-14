@@ -34,18 +34,30 @@ from OOPAO.tools.displayTools import cl_plot, displayMap
 plt.ion()
 # number of subaperture for the WFS
 n_subaperture = 20
-
+plt.ion()
+# number of subaperture for the WFS
+n_subaperture = 15
+# number of pixels per subaperture 
+res_factor = 8 
 
 # %%-----------------------     TELESCOPE   ----------------------------------
 from OOPAO.Telescope import Telescope
 
+# # create the Telescope object
+# tel = Telescope(resolution           = 4*n_subaperture,                          # resolution of the telescope in [pix]
+#                 diameter             = 8,                                        # diameter in [m]        
+#                 samplingTime         = 1/1000,                                   # Sampling time in [s] of the AO loop
+#                 centralObstruction   = 0.1,                                      # Central obstruction in [%] of a diameter 
+#                 display_optical_path = False,                                    # Flag to display optical path
+#                 fov                  = 0 ) 
 # create the Telescope object
-tel = Telescope(resolution           = 4*n_subaperture,                          # resolution of the telescope in [pix]
-                diameter             = 8,                                        # diameter in [m]        
-                samplingTime         = 1/1000,                                   # Sampling time in [s] of the AO loop
-                centralObstruction   = 0.1,                                      # Central obstruction in [%] of a diameter 
-                display_optical_path = False,                                    # Flag to display optical path
-                fov                  = 0 )                                     # field of view in [arcsec]. If set to 0 (default) this speeds up the computation of the phase screens but is uncompatible with off-axis targets
+tel = Telescope(resolution           = res_factor * n_subaperture,             # resolution of the telescope in [pix]
+                diameter             = 1.52,                                    # diameter in [m]        
+                samplingTime         = 1/1000,                                 # Sampling time in [s] of the AO loop
+                centralObstruction   = 0.3,                                    # Central obstruction in [%] of a diameter 
+                display_optical_path = False,                                  # Flag to display optical path
+                fov                  = 2 )                                     # field of view in [arcsec]
+                                    # field of view in [arcsec]. If set to 0 (default) this speeds up the computation of the phase screens but is uncompatible with off-axis targets
 
 # # Apply spiders to the telescope pupil
 # thickness_spider    = 0.05                                                       # thickness of the spiders in m
@@ -85,16 +97,22 @@ tel.src.print_properties()
 #%% -----------------------     ATMOSPHERE   ----------------------------------
 from OOPAO.Atmosphere import Atmosphere
            
-# create the Atmosphere object
+# # create the Atmosphere object
+# atm = Atmosphere(telescope     = tel,                               # Telescope                              
+#                  r0            = 0.15,                              # Fried Parameter [m]
+#                  L0            = 25,                                # Outer Scale [m]
+#                  fractionalR0  = [0.45 ,0.1  ,0.1  ,0.25  ,0.1   ], # Cn2 Profile
+#                  windSpeed     = [10   ,12   ,11   ,15    ,20    ], # Wind Speed in [m]
+#                  windDirection = [0    ,72   ,144  ,216   ,288   ], # Wind Direction in [degrees]
+#                  altitude      = [0    ,1000 ,5000 ,10000 ,12000 ]) # Altitude Layers in [m]
+
 atm = Atmosphere(telescope     = tel,                               # Telescope                              
-                 r0            = 0.15,                              # Fried Parameter [m]
+                 r0            = 0.05,                              # Fried Parameter [m]
                  L0            = 25,                                # Outer Scale [m]
-                 fractionalR0  = [0.45 ,0.1  ,0.1  ,0.25  ,0.1   ], # Cn2 Profile
-                 windSpeed     = [10   ,12   ,11   ,15    ,20    ], # Wind Speed in [m]
-                 windDirection = [0    ,72   ,144  ,216   ,288   ], # Wind Direction in [degrees]
-                 altitude      = [0    ,1000 ,5000 ,10000 ,12000 ]) # Altitude Layers in [m]
-
-
+                 fractionalR0  = [0.45 ,0.2  ,0.35 ], # Cn2 Profile
+                 windSpeed     = [2   ,4    ,3    ], # Wind Speed in [m]
+                 windDirection = [0    ,72   ,  288   ], # Wind Direction in [degrees]
+                 altitude      = [0     ,1000 ,2000 ]) # Altitude Layers in [m]
 # initialize atmosphere with current Telescope
 atm.initializeAtmosphere(tel)
 
@@ -109,6 +127,7 @@ plt.colorbar()
 
 # display the atmosphere layers for the sources specified in list_src: 
 atm.display_atm_layers(list_src=[ngs,src])
+
 
 #%% -----------------------     Scientific Detector   ----------------------------------
 from OOPAO.Detector import Detector
@@ -279,6 +298,48 @@ wfs * wfs.focal_plane_camera
 wfs.focal_plane_camera * gsc
 
 plt.plot(gsc.og,label = 'OG -- fitting error')
+plt.legend()
+
+# %%
+
+# compute fitting error
+plt.close('all')
+from OOPAO.calibration.getFittingError import getFittingError
+atm.update()
+OPD_fitting_error, OPD_input, OPD_correction = getFittingError(OPD = atm.OPD, 
+                                                             proj = projector, 
+                                                             basis = basis)
+# OPEN LOOP Phase screen
+atm.update()
+ngs ** atm * tel * wfs
+wfs * wfs.focal_plane_camera
+wfs.focal_plane_camera * gsc
+
+# plt.figure(),
+# plt.plot(gsc.og,label = 'OG -- open loop')
+plt.figure()
+
+# On s'assure de rapatrier la donnée sur le CPU (NumPy) pour Matplotlib
+og_data = gsc.og.get() if hasattr(gsc.og, 'get') else gsc.og
+
+plt.plot(og_data, label='OG -- open loop')
+plt.legend()
+# replace atm OPD by fitting error using the static OPD class
+from OOPAO.OPD_map import OPD_map
+
+fitting_OPD = OPD_map(OPD_fitting_error)
+ngs ** tel * fitting_OPD * wfs
+wfs * wfs.focal_plane_camera
+wfs.focal_plane_camera * gsc
+
+# plt.plot(gsc.og,label = 'OG -- fitting error')
+# plt.legend()
+plt.figure()
+
+# On s'assure de rapatrier la donnée sur le CPU (NumPy) pour Matplotlib
+og_data = gsc.og.get() if hasattr(gsc.og, 'get') else gsc.og
+
+plt.plot(og_data, label='OG --fitting error')
 plt.legend()
 
 #%% -----------------------     Calibration: Interaction Matrix  ----------------------------------

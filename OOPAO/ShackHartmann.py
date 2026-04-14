@@ -318,7 +318,8 @@ class ShackHartmann:
         return
 
     def initialize_flux(self, src, sh_data):
-        input_flux_map = src.fluxMap.T
+        flux = src.fluxMap.copy()*src.scintillation.copy()
+        input_flux_map = flux.T
         tmp_flux_h_split = np.hsplit(input_flux_map, self.nSubap)
         sh_data.cube_flux = np.zeros([self.nSubap ** 2,
                                       self.n_pix_lenslet_init,
@@ -461,10 +462,16 @@ class ShackHartmann:
                 # compute spot intensity
                 if src.phase_filtered is None:
                     phase = src.phase
+                    self.initialize_flux(src=src, sh_data=sh_data)
                     # self.initialize_flux(input_flux_map=src.fluxMap.T)
                 else:
                     phase = src.phase_filtered
-                    self.initialize_flux(((src.amplitude_filtered)**2).T*src.fluxMap.T)
+                    backup_scint = src.scintillation.copy()
+                    src.scintillation = (src.amplitude_filtered**2) * src.scintillation
+                    self.initialize_flux(src=src, sh_data=sh_data)
+                    # Restauration
+                    src.scintillation = backup_scint
+                    # self.initialize_flux(((src.amplitude_filtered)**2).T*src.fluxMap.T*src.scintillation.T, sh_data=sh_data)
                 intensity = (np.abs(np.fft.fft2(np.asarray(self.get_lenslet_em_field(src=src,
                                                                                      sh_data=sh_data,
                                                                                      phase=phase)), axes=[1, 2])/norma)**2)
@@ -628,8 +635,10 @@ class ShackHartmann:
 
         """
         if src.tag == 'asterism':
-            for i_src, src in enumerate(src.src):
-                self.set_weighted_centroiding_map(is_lgs=is_lgs, is_gaussian=is_gaussian, fwhm_factor=fwhm_factor, src=src, sh_data=self.sh_data['src_'+str(i_src)])
+            for i_src, src_ast in enumerate(src.src):
+                self.set_weighted_centroiding_map(is_lgs=is_lgs, is_gaussian=is_gaussian, fwhm_factor=fwhm_factor, src=src_ast, sh_data=self.sh_data['src_'+str(i_src)])
+                print('Re-calibrating the reference signal with the nex weighting map')
+            self.initialize_wfs()
         else:
             if sh_data is None:
                 sh_data = self.sh_data['src_0']
@@ -653,9 +662,12 @@ class ShackHartmann:
             warning('A new weighting map is now considered.')
             sh_data.weighting_map = weighting_map
             self.weighting_map = weighting_map
+            if self.src.tag == 'source':
+                print('Re-calibrating the reference signal with the nex weighting map')
+                self.initialize_wfs()
         return
 
-    def set_slopes_units(self, src=None, tomographic_reconstructor=None):
+    def set_slopes_units(self, src=None, tomographic_reconstructor=None,dm =None):
         if src is None:
             src = self.src
         print('Calibrating the slopes units')
@@ -691,7 +703,8 @@ class ShackHartmann:
                 src**self.telescope*TT_in*self.em_field_transform
                 self.relay(src)
                 wfs_signal = np.hstack(self.signal)
-                TT_out = OPD_map((tomographic_reconstructor@wfs_signal).reshape([self.telescope.resolution, self.telescope.resolution])*self.telescope.pupil)
+                rec_commands = tomographic_reconstructor@wfs_signal
+                TT_out = OPD_map((dm.modes@rec_commands).reshape([self.telescope.resolution, self.telescope.resolution])*self.telescope.pupil)
                 self.slopes_units *= np.std(TT_out.OPD) / np.std(TT_in.OPD)
         self.cam.photonNoise = photonNoise
         self.cam.readoutNoise = readoutNoise

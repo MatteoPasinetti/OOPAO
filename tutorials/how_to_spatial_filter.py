@@ -192,12 +192,14 @@ ngs**atm*tel*sf*wfs
 plt.figure()
 plt.imshow(wfs.cam.frame)
 plt.title('Spatially Filtered Shack Hartmann')
+plt.colorbar()
 
 # No more Spatial Filter
 ngs**atm*tel*wfs
 plt.figure()
 plt.imshow(wfs.cam.frame)
 plt.title('Regular Shack Hartmann')
+plt.colorbar()
 
 #%% Application with Pyramid
 

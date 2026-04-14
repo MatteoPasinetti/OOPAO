@@ -41,15 +41,15 @@ from OOPAO.tools.displayTools import cl_plot, displayMap
 # %%
 plt.ion()
 # number of subaperture for the WFS
-n_subaperture = 20
+n_subaperture = 9
 
 
 # %%-----------------------     TELESCOPE   ----------------------------------
 from OOPAO.Telescope import Telescope
 
 # create the Telescope object
-tel = Telescope(resolution           = 6*n_subaperture,                          # resolution of the telescope in [pix]
-                diameter             = 8,                                        # diameter in [m]        
+tel = Telescope(resolution           = 8*n_subaperture,                          # resolution of the telescope in [pix]
+                diameter             = 0.6,                                        # diameter in [m]        
                 samplingTime         = 1/1000,                                   # Sampling time in [s] of the AO loop
                 centralObstruction   = 0.1,                                      # Central obstruction in [%] of a diameter 
                 display_optical_path = False,                                    # Flag to display optical path
@@ -144,7 +144,7 @@ atm = Atmosphere(telescope     = tel,                               # Telescope
                  windDirection = [0    ,72   ,144  ,216   ,288   ], # Wind Direction in [degrees]
                  altitude      = [0    ,1000 ,5000 ,10000 ,12000 ]) # Altitude Layers in [m]
 
-
+# atm.scintillation = True
 # initialize atmosphere with current Telescope
 atm.initializeAtmosphere(tel)
 
@@ -276,7 +276,7 @@ ngs*tel
 wfs = Pyramid(nSubap            = n_subaperture,                # number of subaperture = number of pixel accros the pupil diameter
               telescope         = tel,                          # telescope object
               lightRatio        = 0.5,                          # flux threshold to select valid sub-subaperture
-              modulation        = 3,                            # Tip tilt modulation radius
+              modulation        = 1,                            # Tip tilt modulation radius
               binning           = 1,                            # binning factor (applied only on the )
               n_pix_separation  = 2,                            # number of pixel separating the different pupils
               n_pix_edge        = 1,                            # number of pixel on the edges of the pupils

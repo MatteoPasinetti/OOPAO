@@ -158,9 +158,11 @@ class Telescope:
         else:
             self.precision_complex = xp.complex128
         self.isInitialized = False                        # Resolution of the telescope
-        self.resolution = resolution                   # Resolution of the telescope
+        self.resolution = resolution                       # Resolution of the telescope
+        self.padding_factor_correction = 1
+        self.initial_resolution = resolution                   # Initial resolution of the telescope
         self.D = diameter                     # Diameter in m
-        self.initial_D = diameter                     # Diameter in m
+        self.initial_D = diameter                     # Initial diameter in m
         self.pixelSize = self.D/self.resolution       # size of the pixels in m
         self.centralObstruction = centralObstruction           # central obstruction
         self.fov = fov                          # Field of View in arcsec converted in radian
@@ -212,6 +214,12 @@ class Telescope:
                 src.OPD = (src.OPD_no_pupil)*src.mask
             else:
                 src.OPD_no_pupil = np.zeros(self.pupil.shape)
+            if getattr(src, 'scintillation_no_pupil', None) is not None:
+                if np.ndim(src.scintillation_no_pupil) == 2:
+                    src.scintillation = src.scintillation_no_pupil * src.mask
+            else:
+                src.scintillation_no_pupil = np.ones(self.pupil.shape)
+                src.scintillation = np.ones(self.pupil.shape) * src.mask
             src.var = np.var(src.phase[np.where(self.pupil == 1)])
             src.fluxMap = self.pupilReflectivity * src.nPhoton * self.samplingTime * (self.D / self.resolution) ** 2
         return
@@ -300,13 +308,19 @@ class Telescope:
                 raise OopaoError('The asterism contains sources with different wavelengths. Summing up PSFs with different wavelength is not implemented.')
             # check if the source interacted with a spatial filter
             if input_source[i_src].phase_filtered is None:
-                amp_mask = xp.sqrt(input_source[i_src].fluxMap)
+                amp_mask = xp.sqrt(input_source[i_src].fluxMap) 
+                if getattr(input_source[i_src], 'scintillation', None) is not None:
+                    # if the source has a scintillation map, take it into account in the amplitude of the EM field
+                    amp_mask = amp_mask * xp.sqrt(input_source[i_src].scintillation)
                 phase = input_source[i_src].phase
             else:
                 amp_mask = input_source[i_src].amplitude_filtered
+                if getattr(input_source[i_src], 'scintillation', None) is not None:
+                    # if the source has a scintillation map, take it into account in the amplitude of the EM field
+                    amp_mask = amp_mask * xp.sqrt(input_source[i_src].scintillation)
                 phase = input_source[i_src].phase_filtered
             # amplitude of the EM field:
-            amp = amp_mask*self.pupil*self.pupilReflectivity
+            amp = amp_mask*self.pupil*self.pupilReflectivity 
             # add a Tip/Tilt for off-axis sources
             [Tip, Tilt] = xp.meshgrid(xp.linspace(-xp.pi, xp.pi, self.resolution, endpoint=False, dtype=self.precision()),
                                       xp.linspace(-xp.pi, xp.pi, self.resolution, endpoint=False, dtype=self.precision()))
@@ -453,7 +467,7 @@ class Telescope:
             warning('Thickness is <=0, returning default pupil')
             self.set_pupil()
         return
-
+    
     def pad(self, padding_values=0, sky_offset=[0, 0]):
         """
         This functions allows to pad the pupil of padding_values pixels on both sides.
@@ -474,6 +488,9 @@ class Telescope:
         self.resolution = pupil_padded.shape[0]
         self.D = self.resolution * self.pixelSize
         self.pupil = pupil_padded.copy()
+        self.padding_factor_correction = int(np.round(self.resolution / self.initial_resolution))
+        if self.padding_factor_correction % 1 != 0:
+            raise OopaoError(f'The padding factor applied needs to be an integer. Got {self.padding_factor_correction}')
         return
 
     @property
