@@ -211,6 +211,7 @@ class Atmosphere:
         self.param = param
         #♥ Rytov initialization
         self.rytov_wvl = float(rytov_wvl)
+        self.update_rytov_variance()
         if rytov_var is not None:
             self.update_rytov_variance()
             self.rytov_var = float(rytov_var)
@@ -853,6 +854,8 @@ class Atmosphere:
             makeSquareAxes(plt.gca())
 
     def update_rytov_variance(self):
+        if not hasattr(self, 'nLayer') or not hasattr(self, '_fractionalR0') or not hasattr(self, 'altitude'):
+            return
         if not hasattr(self, 'rytov_wvl'):
             self.rytov_wvl = 500e-9    
         k_target = 2 * xp.pi / self.rytov_wvl
@@ -863,6 +866,13 @@ class Atmosphere:
             if self.altitude[i] > 1e-3: 
                 current_rytov += (total_cn2_integral * self.fractionalR0[i]) * (self.altitude[i]**(5/6))
         self._rytov_var = current_rytov * 2.2524 * (k_target**(7/6))
+        if getattr(self, 'angular_spectrum_propagation', False):
+            if self._rytov_var > 0.3 and not getattr(self, '_saturation_warned', False):
+                warning(f"Atmospheric conditions degraded. Rytov variance ({self._rytov_var:.2f}) exceeds 0.3 limit! "
+                        "Entering saturation regime.")
+                self._saturation_warned = True 
+            elif self._rytov_var <= 0.3:
+                self._saturation_warned = False 
 
     def angular_spectrum_method(self, input_field, wavelength, input_pitch, output_pitch, distance):
         if distance == 0:
@@ -956,6 +966,7 @@ class Atmosphere:
                     tmp_layer.ZZt_inv_r0 = tmp_layer.ZZt_inv / ((self.r0_def/self._r0)**(5/3))
                     BBt = tmp_layer.XXt_r0 - xp.matmul(tmp_layer.A, tmp_layer.ZXt_r0)
                     tmp_layer.B = xp.linalg.cholesky(BBt).astype(self.precision())
+        self.update_rytov_variance()
 
     @property
     def L0(self):
@@ -1038,6 +1049,7 @@ class Atmosphere:
                 print('Updating the fractional R0...BEWARE COMPLETE THE RECOMPUTATION...NOT ONLY V0 and Tau0 !')
                 self.V0 = (np.sum(np.asarray(self.fractionalR0) * np.asarray(self.windSpeed))**(5/3))**(3/5)  # computation of equivalent wind speed, Roddier 1982
                 self.tau0 = 0.31 * self.r0 / self.V0  # Coherence time of atmosphere, Roddier 1981
+        self.update_rytov_variance()
 
     @property
     def elevation(self):
@@ -1065,6 +1077,7 @@ class Atmosphere:
                 self.initializeAtmosphere(self.telescope, compute_covariance=self.compute_covariance)
             else:
                 raise OopaoError("Warning: Atmosphere not yet linked to a telescope. Call initializeAtmosphere() manually.")
+        self.update_rytov_variance()
     
     @property
     def rytov_var(self):
